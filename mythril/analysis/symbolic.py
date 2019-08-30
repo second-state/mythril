@@ -46,6 +46,7 @@ class SymExecWrapper:
         strategy,
         dynloader=None,
         max_depth=22,
+        functions_of_interest=None,
         execution_timeout=None,
         loop_bound=3,
         create_timeout=None,
@@ -110,6 +111,7 @@ class SymExecWrapper:
         self.laser = svm.LaserEVM(
             dynamic_loader=dynloader,
             max_depth=max_depth,
+            functions_of_interest=functions_of_interest,
             execution_timeout=execution_timeout,
             strategy=s_strategy,
             create_timeout=create_timeout,

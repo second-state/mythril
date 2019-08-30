@@ -74,6 +74,8 @@ class SolidityContract(EVMContract):
         data = get_solc_json(input_file, solc_args=solc_args, solc_binary=solc_binary)
 
         self.solidity_files = []
+        # Maybe remove this or move it to the base type. This tells us which contract is instantiated.
+        self.name = name
 
         for filename in data["sourceList"]:
             with open(filename, "r", encoding="utf-8") as file:
@@ -113,6 +115,7 @@ class SolidityContract(EVMContract):
                 filename, name = key.split(":")
 
                 if filename == input_file and len(contract["bin-runtime"]):
+                    self.name = name
                     code = contract["bin-runtime"]
                     creation_code = contract["bin"]
                     srcmap = contract["srcmap-runtime"].split(";")

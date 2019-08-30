@@ -15,6 +15,7 @@ import coloredlogs
 import traceback
 
 import mythril.support.signatures as sigs
+from mythril.support.callgraph import Callgraph
 from argparse import ArgumentParser, Namespace
 from mythril.exceptions import AddressNotFoundError, CriticalError
 from mythril.mythril import (
@@ -318,6 +319,11 @@ def create_analyzer_parser(analyzer_parser: ArgumentParser):
         help="Maximum recursion depth for symbolic execution",
     )
     options.add_argument(
+        "--functions-of-interest",
+        nargs='+',
+        help="Signatures of functions interested"
+    )
+    options.add_argument(
         "--strategy",
         choices=["dfs", "bfs", "naive-random", "weighted-random"],
         default="bfs",
@@ -529,6 +535,7 @@ def load_code(disassembler: MythrilDisassembler, args: Namespace):
 
 def execute_command(
     disassembler: MythrilDisassembler,
+    functions_of_interest,
     address: str,
     parser: ArgumentParser,
     args: Namespace,
@@ -561,6 +568,7 @@ def execute_command(
             disassembler=disassembler,
             address=address,
             max_depth=args.max_depth,
+            functions_of_interest=functions_of_interest,
             execution_timeout=args.execution_timeout,
             loop_bound=args.loop_bound,
             create_timeout=args.create_timeout,
@@ -680,13 +688,29 @@ def parse_args_and_execute(parser: ArgumentParser, args: Namespace) -> None:
         leveldb_search(config, args)
         query_signature = args.__dict__.get("query_signature", None)
         solc_args = args.__dict__.get("solc_args", None)
+        solidity_file = args.__dict__.get("solidity_file", [])
         solv = args.__dict__.get("solv", None)
+        functions_of_interest = args.functions_of_interest
+
         disassembler = MythrilDisassembler(
             eth=config.eth,
             solc_version=solv,
             solc_args=solc_args,
             enable_online_lookup=query_signature,
         )
+
+        if functions_of_interest:
+            if len(solidity_file) != 1:
+                exit_with_error(
+                    args.outform,
+                    "--functions_of_interest is only usable when exactly one solidity file is given.",
+                )
+            else:
+                callgraph = Callgraph()
+                # TODO Refactor: Take solc_binary from disassembler looks weird.
+                callgraph.import_solidity_file(solidity_file[0], disassembler.solc_binary, solc_args)
+                functions_of_interest = callgraph.request_call_dependency(functions_of_interest)
+
         if args.command == "truffle":
             try:
                 disassembler.analyze_truffle_project(args)
@@ -699,7 +723,7 @@ def parse_args_and_execute(parser: ArgumentParser, args: Namespace) -> None:
 
         address = load_code(disassembler, args)
         execute_command(
-            disassembler=disassembler, address=address, parser=parser, args=args
+            disassembler=disassembler, functions_of_interest=functions_of_interest, address=address, parser=parser, args=args
         )
     except CriticalError as ce:
         exit_with_error(args.__dict__.get("outform", "text"), str(ce))

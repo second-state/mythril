@@ -49,6 +49,7 @@ class LaserEVM:
         self,
         dynamic_loader=None,
         max_depth=float("inf"),
+        functions_of_interest=None,
         execution_timeout=60,
         create_timeout=10,
         strategy=DepthFirstSearchStrategy,
@@ -79,6 +80,7 @@ class LaserEVM:
         self.work_list = []  # type: List[GlobalState]
         self.strategy = strategy(self.work_list, max_depth)
         self.max_depth = max_depth
+        self.functions_of_interest = functions_of_interest
         self.transaction_count = transaction_count
 
         self.execution_timeout = execution_timeout or 0
@@ -155,7 +157,6 @@ class LaserEVM:
 
         elif scratch_mode:
             log.info("Starting contract creation transaction")
-
             created_account = execute_contract_creation(
                 self, creation_code, contract_name, world_state=world_state
             )
@@ -170,7 +171,6 @@ class LaserEVM:
                     "No contract was created during the execution of contract creation "
                     "Increase the resources for creation execution (--max-depth or --create-timeout)"
                 )
-
             self._execute_transactions(created_account.address)
 
         log.info("Finished symbolic execution")
@@ -195,7 +195,6 @@ class LaserEVM:
         :return:
         """
         self.time = datetime.now()
-
         for i in range(self.transaction_count):
             log.info(
                 "Starting message call transaction, iteration: {}, {} initial states".format(
@@ -205,7 +204,8 @@ class LaserEVM:
             for hook in self._start_sym_trans_hooks:
                 hook()
 
-            execute_message_call(self, address)
+            is_last_transaction = (i == self.transaction_count-1)
+            execute_message_call(self, address, is_last_transaction)
 
             for hook in self._stop_sym_trans_hooks:
                 hook()

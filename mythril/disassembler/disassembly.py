@@ -27,6 +27,7 @@ class Disassembly(object):
 
         self.func_hashes = []  # type: List[str]
         self.function_name_to_address = {}  # type: Dict[str, int]
+        self.function_name_to_hash = {}  # type: Dict[str, set(str)]
         self.address_to_function_name = {}  # type: Dict[int, str]
         self.enable_online_lookup = enable_online_lookup
         self.assign_bytecode(bytecode=code)
@@ -50,6 +51,21 @@ class Disassembly(object):
             if jump_target is not None and function_name is not None:
                 self.function_name_to_address[function_name] = jump_target
                 self.address_to_function_name[jump_target] = function_name
+                self.function_name_to_hash[function_name] = {function_hash}
+
+    def get_hash_from_name(self, name):
+        return self.function_name_to_hash.get(name, set())
+
+    def get_hash_from_name_without_signature(self, name):
+        return set().union(*[value for key, value in self.function_name_to_hash.items()\
+            if get_name_without_signature(key) == name])
+
+    def get_hash(self, name):
+        # TODO Refactor: Move fuzzy matching to callgraph.
+        if without_signature(name):
+            return self.get_hash_from_name_without_signature(name)
+        else:
+            return self.get_hash_from_name(name)
 
     def get_easm(self):
         """
@@ -58,6 +74,11 @@ class Disassembly(object):
         """
         return asm.instruction_list_to_easm(self.instruction_list)
 
+def without_signature(signature):
+    return "(" not in signature
+
+def get_name_without_signature(signature):
+    return signature.split("(")[0]
 
 def get_function_info(
     index: int, instruction_list: list, signature_database: SignatureDB

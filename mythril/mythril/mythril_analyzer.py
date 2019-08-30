@@ -35,6 +35,7 @@ class MythrilAnalyzer:
         strategy: str = "dfs",
         address: Optional[str] = None,
         max_depth: Optional[int] = None,
+        functions_of_interest = None,
         execution_timeout: Optional[int] = None,
         loop_bound: Optional[int] = None,
         create_timeout: Optional[int] = None,
@@ -58,6 +59,7 @@ class MythrilAnalyzer:
         self.strategy = strategy
         self.address = address
         self.max_depth = max_depth
+        self.functions_of_interest = functions_of_interest
         self.execution_timeout = execution_timeout
         self.loop_bound = loop_bound
         self.create_timeout = create_timeout
@@ -85,6 +87,7 @@ class MythrilAnalyzer:
                 contract_loading=self.dynld,
             ),
             max_depth=self.max_depth,
+            functions_of_interest=self.functions_of_interest,
             execution_timeout=self.execution_timeout,
             create_timeout=self.create_timeout,
             enable_iprof=self.enable_iprof,
@@ -121,6 +124,7 @@ class MythrilAnalyzer:
                 contract_loading=self.dynld,
             ),
             max_depth=self.max_depth,
+            functions_of_interest=self.functions_of_interest,
             execution_timeout=self.execution_timeout,
             transaction_count=transaction_count,
             create_timeout=self.create_timeout,
@@ -158,6 +162,7 @@ class MythrilAnalyzer:
                         contract_loading=self.dynld,
                     ),
                     max_depth=self.max_depth,
+                    functions_of_interest=self.functions_of_interest,
                     execution_timeout=self.execution_timeout,
                     loop_bound=self.loop_bound,
                     create_timeout=self.create_timeout,

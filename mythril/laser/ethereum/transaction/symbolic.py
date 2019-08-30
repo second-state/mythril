@@ -13,7 +13,7 @@ from mythril.laser.ethereum.transaction.transaction_models import (
     get_next_transaction_id,
     BaseTransaction,
 )
-from mythril.laser.smt import symbol_factory, Or, BitVec
+from mythril.laser.smt import symbol_factory, Or, BitVec, simplify, Concat
 
 log = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ ACTOR_ADDRESSES = [
 ]
 
 
-def execute_message_call(laser_evm, callee_address: BitVec) -> None:
+def execute_message_call(laser_evm, callee_address: BitVec, is_last_transaction) -> None:
     """Executes a message call transaction from all open states.
 
     :param laser_evm:
@@ -43,6 +43,7 @@ def execute_message_call(laser_evm, callee_address: BitVec) -> None:
             continue
 
         next_transaction_id = get_next_transaction_id()
+
         transaction = MessageCallTransaction(
             world_state=open_world_state,
             identifier=next_transaction_id,
@@ -62,7 +63,8 @@ def execute_message_call(laser_evm, callee_address: BitVec) -> None:
                 "call_value{}".format(next_transaction_id), 256
             ),
         )
-        _setup_global_state_for_execution(laser_evm, transaction)
+
+        _setup_global_state_for_execution(laser_evm, transaction, is_last_transaction)
 
     laser_evm.exec()
 
@@ -110,7 +112,7 @@ def execute_contract_creation(
     return new_account
 
 
-def _setup_global_state_for_execution(laser_evm, transaction: BaseTransaction) -> None:
+def _setup_global_state_for_execution(laser_evm, transaction: BaseTransaction, is_last_transaction=False) -> None:
     """Sets up global state and cfg for a transactions execution.
 
     :param laser_evm:
@@ -146,6 +148,14 @@ def _setup_global_state_for_execution(laser_evm, transaction: BaseTransaction) -
         new_node.constraints = global_state.mstate.constraints.as_list
 
     global_state.world_state.transaction_sequence.append(transaction)
+
+    if is_last_transaction and laser_evm.functions_of_interest:
+        function_names = laser_evm.functions_of_interest
+        function_hashes = set().union(*[transaction.callee_account.code.get_hash(function_name) for function_name in function_names])
+        if function_hashes:
+            cond = Or(*[symbol_factory.BitVecVal(int(function_hash, 16), 32) == simplify(Concat(transaction.call_data[:4])) for transaction in global_state.world_state.transaction_sequence[1:] for function_hash in function_hashes])
+            global_state.mstate.constraints.append(cond)
+
     global_state.node = new_node
     new_node.states.append(global_state)
     laser_evm.work_list.append(global_state)
